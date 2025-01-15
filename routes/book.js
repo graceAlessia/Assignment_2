@@ -1,77 +1,113 @@
 var express = require("express");
 var router = express.Router();
+const Book = require("../models/bookModel");
 
 var books = [];
 
-router.get("/", function (req, res, next) {
+//Book List
+router.get("/", async function (req, res, next) {
+  const items = await Book.find();
   res.status(200);
   res.json({
     message: "Book List",
-    result: books,
+    result: items,
   });
 });
 
-router.post("/", function (req, res) {
+//Add New Books
+router.post("/", async function (req, res) {
   const newItem = { id: Date.now(), ...req.body };
-  books.push(newItem);
-  res.status(201);
-  res.json({
-    message: "New Book added successfully",
-    result: newItem,
-  });
-});
 
-router.get("/:id", function (req, res) {
-  const item = books.find((i) => i.id === req.params.id);
-  if (!item) {
-    //to respond not exist
-    res.status(400);
-    res.json({
-      message: "Book not found!",
+  const book = new Book(newItem);
+  try {
+    book.save();
+
+    res.status(201).json({
+      message: "New Book added successfully!",
+      result: newItem,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to add new book.",
       result: [],
     });
   }
-  res.status(200);
-  res.json({
+});
+
+//Search Books
+router.get("/:id", async function (req, res) {
+  const itemID = parseInt(req.params.id);
+  const item = await Book.findOne({
+    bookID: itemID, // Use bookID to match schema
+  });
+  if (!item) {
+    res.status(400).json({
+      message: "Book not found!",
+      result: [],
+    });
+    return;
+  }
+  res.status(200).json({
     message: "Book found!",
     result: item,
   });
 });
 
 // Delete a book by ID
-router.delete("/:id", function (req, res) {
-  const index = books.findIndex((i) => i.id === parseInt(req.params.id)); // Find the index
-  if (index === -1) {
-    // Check if the index is invalid
-    res.status(404).json({
-      message: "Book does not exist!",
+router.delete("/:id", async function (req, res) {
+  const itemID = parseInt(req.params.id);
+
+  try {
+    const result = await Book.deleteOne({ bookID: itemID });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        message: "Book does not exist!",
+      });
+    }
+    res.status(200).json({
+      message: "Successfully deleted!",
     });
-    return; // Ensure we don't proceed further
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while deleting the book.",
+    });
   }
-  books.splice(index, 1); // Remove the item from the array
-  res.status(200).json({
-    message: "Successfully deleted!",
-  });
 });
 
-router.put("/:id", function (req, res) {
-  const item = books.find((i) => i.id === parseInt(req.params.id));
-  if (!item) {
-    res.status(404).json({
-      message: "Book does not exist!",
+// Update Book details
+router.put("/:id", async function (req, res) {
+  const itemID = parseInt(req.params.id); // Parse the bookID to a number
+
+  try {
+    const updatedBook = await Book.findOneAndUpdate(
+      { bookID: itemID }, // Match based on bookID
+      {
+        $set: {
+          author: req.body.author,
+          bookTitle: req.body.bookTitle,
+          year: req.body.year,
+          genre: req.body.genre,
+        },
+      },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedBook) {
+      return res.status(404).json({
+        message: "Book not found!",
+      });
+    }
+
+    res.status(200).json({
+      message: "Book updated successfully!",
+      result: updatedBook,
     });
-    return; // Stop further execution if the book does not exist
+  } catch (error) {
+    res.status(500).json({
+      message: "An error occurred while updating the book.",
+      error: error.message,
+    });
   }
-
-  // Update the book properties
-  item.author = req.body.author || item.author;
-  item.year = req.body.year || item.year;
-  item.genre = req.body.genre || item.genre;
-
-  res.status(200).json({
-    message: "Book edited successfully!",
-    result: item, // Include the updated book in the response
-  });
 });
 
 module.exports = router;

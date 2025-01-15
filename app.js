@@ -7,7 +7,7 @@ var cors = require("cors");
 var bodyParser = require("body-parser");
 
 mongoose
-  .connect("mongodb://localhost:27017/")
+  .connect("mongodb://localhost:27017/lap_library")
   .then(() => {
     console.log("Databse connected.");
   })
